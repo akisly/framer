@@ -1,46 +1,78 @@
-import { framer, CanvasNode } from "framer-plugin"
-import { useState, useEffect } from "react"
-import "./App.css"
+import { framer, CanvasNode, isTextNode } from "framer-plugin";
+import { useState, useEffect } from "react";
+import { TextStyleControls } from "./components/TextStyleControls.tsx";
+import "./App.css";
 
 framer.showUI({
-    position: "top right",
-    width: 240,
-    height: 95,
-})
+  position: "top right",
+  width: 300,
+  resizable: "height",
+});
 
 function useSelection() {
-    const [selection, setSelection] = useState<CanvasNode[]>([])
-
-    useEffect(() => {
-        return framer.subscribeToSelection(setSelection)
-    }, [])
-
-    return selection
+  const [selection, setSelection] = useState<CanvasNode[]>([]);
+  
+  useEffect(() => {
+    return framer.subscribeToSelection(setSelection);
+  }, []);
+  
+  return selection;
 }
 
 export function App() {
-    const selection = useSelection()
-    const layer = selection.length === 1 ? "layer" : "layers"
+  const selection = useSelection();
+  const [color, setColor] = useState<string | undefined>(undefined);
+  const [highlightStyle, setHighlightStyle] = useState<"highlight" | "underline">("highlight")
 
-    const handleAddSvg = async () => {
-        await framer.addSVG({
-            svg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path fill="#999" d="M20 0v8h-8L4 0ZM4 8h8l8 8h-8v8l-8-8Z"/></svg>`,
-            name: "Logo.svg",
-        })
+  const handleApplyUnderline = async () => {
+    if (selection.length === 0) {
+      console.warn("No layers selected to apply underline.");
+      return;
     }
 
-    return (
-        <main>
-            <p>
-                Welcome! Check out the{" "}
-                <a href="https://framer.com/developers/plugins/introduction" target="_blank">
-                    Docs
-                </a>{" "}
-                to start. You have {selection.length} {layer} selected.
-            </p>
-            <button className="framer-button-primary" onClick={handleAddSvg}>
-                Insert Logo
-            </button>
-        </main>
-    )
+    for (const node of selection) {
+      if (isTextNode(node)) {
+        try {
+          if (highlightStyle === "highlight") {
+            const parent = await node.getParent();
+            
+            if (parent) {
+              const newNode = await framer.createFrameNode({
+                backgroundColor: color,
+                width: '1000px',
+                height: '150px',
+                maxWidth: node.maxWidth,
+              }, parent.id);
+              if (newNode) {
+                await framer.setParent(node.id, newNode.id);
+                await framer.setParent(newNode.id, parent.id);
+              }
+            }
+          } else {
+            await node.inlineTextStyle?.setAttributes({
+              decoration: "underline",
+              color: color,
+            })
+          }
+          console.log("Underline applied to:", node);
+        } catch (error) {
+          console.error("Failed to apply underline to:", node, error);
+        }
+      } else {
+        console.warn("Skipping non-text node:", node);
+      }
+    }
+  };
+  
+  return (
+    <main className="plugin-container">
+      <TextStyleControls
+        highlightStyle={highlightStyle}
+        color={color}
+        onStyleChange={setHighlightStyle}
+        onColorChange={setColor}
+        onApply={handleApplyUnderline}
+      />
+    </main>
+  );
 }
