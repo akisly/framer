@@ -6,7 +6,7 @@ import "./App.css";
 framer.showUI({
   position: "top right",
   width: 300,
-  resizable: "height",
+  height: 210,
 });
 
 function useSelection() {
@@ -42,10 +42,14 @@ export function App() {
                 width: '1000px',
                 height: '150px',
                 maxWidth: node.maxWidth,
+                visible: false,
               }, parent.id);
               if (newNode) {
                 await framer.setParent(node.id, newNode.id);
-                await framer.setParent(newNode.id, parent.id);
+                await framer.setParent(newNode.id, parent.id, 0);
+                await newNode.setAttributes({
+                  visible: true,
+                })
               }
             }
           } else {
